@@ -6,8 +6,7 @@ from models import Job, JobCreate, PyObjectId
 from db import job_collection
 from auth import get_current_user
 from typing import List
-from utils.telegram import send_telegram_message
-
+from utils.telegram import send_message_sync
 router=APIRouter()
 
 @router.post("/", response_model=Job)
@@ -26,17 +25,24 @@ def create_job(job: JobCreate, current_user: dict = Depends(get_current_user)):
         job_dict["_id"] = str(result.inserted_id)
 
         # Send Telegram notification
-        chat_id = current_user.get("telegram_chat_id")
-        if chat_id:
-            message = (
-                f"🆕 New Job Added!\n\n"
-                f"📋 Title: {job_dict['title']}\n"
-                f"🏢 Company: {job_dict['company']}\n"
-                f"📍 Location: {job_dict.get('location', 'Remote/Not Specified')}\n"
-                f"🔗 Link: {job_dict.get('link', 'N/A')}"
-            )
-            from utils.telegram import send_message_sync
-            send_message_sync(chat_id, message)
+        try:
+            chat_id = current_user.get("telegram_chat_id")
+            print(f"DEBUG: User telegram_chat_id: {chat_id}")
+            if chat_id:
+                message = (
+                    f"🆕 New Job Added!\n\n"
+                    f"📋 Title: {job_dict['title']}\n"
+                    f"🏢 Company: {job_dict['company']}\n"
+                    f"📍 Location: {job_dict.get('location', 'Remote/Not Specified')}\n"
+                    f"🔗 Link: {job_dict.get('link', 'N/A')}"
+                )
+                print(f"DEBUG: Attempting to send Telegram notification...")
+                send_message_sync(chat_id, message)
+            else:
+                print("DEBUG: No telegram_chat_id found for user, skipping notification")
+        except Exception as e:
+            print(f"ERROR: Failed to send Telegram notification: {str(e)}")
+            # Don't fail job creation if notification fails
         
         return Job(**job_dict)
     except Exception as e:
@@ -90,6 +96,27 @@ def update_job(job_id: str, job: JobCreate, current_user: dict = Depends(get_cur
         "_id": str(updated_job["_id"]),
         "owner_id": str(updated_job["owner_id"])
     }
+    
+    # Send Telegram notification about the update
+    try:
+        chat_id = current_user.get("telegram_chat_id")
+        print(f"DEBUG: User telegram_chat_id (update): {chat_id}")
+        if chat_id:
+            message = (
+                f"✏️ Job Updated!\n\n"
+                f"📋 Title: {job_dict['title']}\n"
+                f"🏢 Company: {job_dict['company']}\n"
+                f"📍 Location: {job_dict.get('location', 'Remote/Not Specified')}\n"
+                f"🔗 Link: {job_dict.get('link', 'N/A')}"
+            )
+            print(f"DEBUG: Attempting to send Telegram update notification...")
+            send_message_sync(chat_id, message)
+        else:
+            print("DEBUG: No telegram_chat_id found for user, skipping update notification")
+    except Exception as e:
+        print(f"ERROR: Failed to send Telegram update notification: {str(e)}")
+        # Don't fail job update if notification fails
+    
     return Job(**job_dict)
 
 @router.delete("/{job_id}")
