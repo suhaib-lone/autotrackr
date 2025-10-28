@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Optional, Any
+from typing import List, Optional, Any
 from bson import ObjectId
 from pydantic import BaseModel, Field, GetCoreSchemaHandler
 from pydantic_core import CoreSchema, core_schema
@@ -11,7 +11,7 @@ class UserCreate(BaseModel):
     email: str
     password: str
     telegram_chat_id: str
-
+    skills: List[str] = []
 
 class UserLogin(BaseModel):
     username: str
@@ -49,6 +49,11 @@ class Job(JobBase):
     id: str = Field(default_factory=lambda: str(ObjectId()), alias="_id")
     owner_id: str
     date_added: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    source: Optional[str] = None
+    external_id: Optional[str] = None  # e.g. job posting unique id or hash
+    skills_matched: List[str] = []
+    last_checked: Optional[datetime] = None
+    change_history: List[dict] = []  # [{'changed_at': datetime, 'diff': {...}}]
 
     model_config = {
         "populate_by_name": True,
@@ -57,8 +62,15 @@ class Job(JobBase):
 
 
 class JobCreate(JobBase):
+    skills_matched: List[str] = []
+    source: Optional[str] = None
+    link: str
     model_config = {
         "populate_by_name": True,
         "arbitrary_types_allowed": True,
         "json_encoders": {ObjectId: str}
     }
+
+
+class SkillsUpdate(BaseModel):
+    skills: List[str]
